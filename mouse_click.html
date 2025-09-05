@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鼠标按键断触检测</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.2rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .description {
+            text-align: center;
+            margin-bottom: 25px;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+        
+        .canvas-container {
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        #graphCanvas {
+            width: 100%;
+            height: 100%;
+            background: #0d1b2a;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .stat-box {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            min-width: 150px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4cc9f0;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: #4361ee;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #3a56d4;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #resetBtn {
+            background: #f72585;
+        }
+        
+        #resetBtn:hover {
+            background: #e91c7d;
+        }
+        
+        .events {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .events h3 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        #eventsList {
+            list-style-type: none;
+        }
+        
+        #eventsList li {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .timestamp {
+            color: #90e0ef;
+        }
+        
+        .status {
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            color: #4ade80;
+        }
+        
+        .status.disconnected {
+            color: #f87171;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stat-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐭 鼠标按键断触检测工具</h1>
+        
+        <p class="description">
+            检测鼠标按键的断触情况。按下鼠标按钮开始检测，松开超过1秒后停止检测。
+        </p>
+        
+        <div class="canvas-container">
+            <canvas id="graphCanvas"></canvas>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div>当前状态</div>
+                <div id="currentStatus" class="stat-value">等待中</div>
+            </div>
+            <div class="stat-box">
+                <div>断触次数</div>
+                <div id="disconnectCount" class="stat-value">0</div>
+            </div>
+            <div class="stat-box">
+                <div>检测时间</div>
+                <div id="detectionTime" class="stat-value">0.0s</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn">开始检测</button>
+            <button id="resetBtn">重置数据</button>
+        </div>
+        
+        <div class="events">
+            <h3>断触事件记录</h3>
+            <ul id="eventsList"></ul>
+        </div>
+        
+        <div class="instructions">
+            <h3>使用说明</h3>
+            <ul>
+                <li>按下鼠标按钮开始检测，松开按钮超过1秒后停止检测</li>
+                <li>绿色区域表示按键正常，红色区域表示检测到断触</li>
+                <li>断触事件会被记录在下方列表中</li>
+                <li>点击"开始检测"按钮可以手动启动检测</li>
+                <li>点击"重置数据"按钮可以清除所有记录</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('graphCanvas');
+            const ctx = canvas.getContext('2d');
+            const startBtn = document.getElementById('startBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const currentStatus = document.getElementById('currentStatus');
+            const disconnectCount = document.getElementById('disconnectCount');
+            const detectionTime = document.getElementById('detectionTime');
+            const eventsList = document.getElementById('eventsList');
+            
+            // 设置Canvas尺寸
+            function resizeCanvas() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 状态变量
+            let isDetecting = false;
+            let isMouseDown = false;
+            let startTime = 0;
+            let lastEventTime = -1;
+            let disconnectEvents = [];
+            let dataPoints = [];
+            let animationId = null;
+            let timeoutId = null;
+            // 新增：实时采样数据点
+            let sampleIntervalId = null;
+            const SAMPLE_INTERVAL = 20; // ms
+            
+            // 初始化
+            resetData();
+            drawGraph();
+            
+            // 事件监听
+            startBtn.addEventListener('click', startDetection);
+            resetBtn.addEventListener('click', resetData);
+            
+            document.addEventListener('mousedown', function(e) {
+                if (!isDetecting) {
+                    startDetection();
+                }
+                handleMouseDown(e);
+            });
+            
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            function startDetection() {
+                if (isDetecting) return;
+
+                isDetecting = true;
+                startTime = Date.now();
+                lastEventTime = -1;
+                currentStatus.textContent = "检测中";
+                startBtn.textContent = "检测中...";
+                startBtn.disabled = true;
+
+                // 添加初始数据点
+                dataPoints = [];
+                dataPoints.push({ time: 0, value: 1 });
+
+                // 开始动画
+                if (animationId) cancelAnimationFrame(animationId);
+                animationId = requestAnimationFrame(updateGraph);
+
+                // 实时采样
+                if (sampleIntervalId) clearInterval(sampleIntervalId);
+                sampleIntervalId = setInterval(samplePoint, SAMPLE_INTERVAL);
+            }
+
+            function stopDetection() {
+                isDetecting = false;
+                isMouseDown = false;
+                currentStatus.textContent = "等待中";
+                startBtn.textContent = "开始检测";
+                startBtn.disabled = false;
+
+                if (timeoutId) clearTimeout(timeoutId);
+                if (animationId) cancelAnimationFrame(animationId);
+
+                // 停止实时采样
+                if (sampleIntervalId) clearInterval(sampleIntervalId);
+                sampleIntervalId = null;
+
+                // 绘制最终状态
+                drawGraph();
+            }
+            
+            function resetData() {
+                // 停止当前检测
+                stopDetection();
+                
+                // 重置所有数据
+                isDetecting = false;
+                isMouseDown = false;
+                startTime = 0;
+                lastEventTime = -1;
+                disconnectEvents = [];
+                dataPoints = [];
+                
+                // 重置UI
+                currentStatus.textContent = "等待中";
+                disconnectCount.textContent = "0";
+                detectionTime.textContent = "0.0s";
+                eventsList.innerHTML = "";
+                
+                // 重绘图表
+                drawGraph();
+            }
+            
+            // 新增：实时采样函数
+            function samplePoint() {
+                if (!isDetecting || !startTime) return;
+                const now = Date.now();
+                const elapsedTime = (now - startTime) / 1000;
+                const value = isMouseDown ? 1 : 0;
+                // 只在状态变化或超过采样间隔时添加新点
+                if (
+                    dataPoints.length === 0 ||
+                    dataPoints[dataPoints.length - 1].value !== value ||
+                    elapsedTime - dataPoints[dataPoints.length - 1].time > SAMPLE_INTERVAL / 1000
+                ) {
+                    dataPoints.push({ time: elapsedTime, value });
+                }
+            }
+            
+            function handleMouseDown(e) {
+                if (!isDetecting) return;
+                
+                const currentTime = Date.now();
+                const elapsedTime = (currentTime - startTime) / 1000;
+                
+                isMouseDown = true;
+                
+                // 检查是否断触（距离上次事件超过50ms）
+                if (lastEventTime > 0 ) {
+                    // 记录断触事件
+                    disconnectEvents.push({
+    start: (lastEventTime - startTime) / 1000,
+    end: elapsedTime,
+    duration: (currentTime - lastEventTime) / 1000
+});
+                    
+                    // 更新UI
+                    disconnectCount.textContent = disconnectEvents.length;
+                    
+                    // 添加事件到列表
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="timestamp">${elapsedTime.toFixed(2)}s</span>
+                        <span class="status disconnected">断触 ${(currentTime - lastEventTime).toFixed(0)}ms</span>
+                    `;
+                    eventsList.appendChild(li);
+                    eventsList.scrollTop = eventsList.scrollHeight;
+                    
+                    // 添加断触数据点
+                    dataPoints.push({ time: elapsedTime, value: 0 });
+                }
+                
+                // 添加按下数据点
+                dataPoints.push({ time: elapsedTime, value: 1 });
+                
+                // lastEventTime = currentTime;
+                
+                // 更新检测时间
+                detectionTime.textContent = elapsedTime.toFixed(1) + 's';
+                
+                // 清除超时
+                if (timeoutId) clearTimeout(timeoutId);
+            }
+            
+            function handleMouseUp() {
+                if (!isDetecting || !isMouseDown) return;
+                
+                isMouseDown = false;
+                const currentTime = Date.now();
+                const elapsedTime = (currentTime - startTime) / 1000;
+                
+                // 添加释放数据点
+                dataPoints.push({ time: elapsedTime, value: 0 });
+                
+                // 设置超时停止检测（1秒后）
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(stopDetection, 1000);
+                lastEventTime = currentTime;
+            }
+            
+            function drawGraph() {
+    const width = canvas.width;
+    const height = canvas.height;
+    const WINDOW = 10; // 显示最近10秒
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 背景网格
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y <= height; y += height / 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+    for (let x = 0; x <= width; x += width / 10) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+    }
+
+    // 没有数据时提示
+    if (dataPoints.length === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('按下鼠标按钮开始检测', width / 2, height / 2);
+        return;
+    }
+
+    // 计算当前时间
+    const lastTime = dataPoints[dataPoints.length - 1].time;
+    // 右侧永远是当前时刻，横坐标为相对时间
+    const tEnd = lastTime;
+    const tStart = Math.max(0, tEnd - WINDOW);
+
+    // 0放在中间
+    const centerX = width / 2;
+    const tZero = tEnd;
+    const tLeft = tZero - WINDOW / 2;
+    const tRight = tZero + WINDOW / 2;
+
+    // 过滤窗口内的数据
+    let points = dataPoints.filter(pt => pt.time >= tLeft - 0.1 && pt.time <= tRight + 0.1);
+    // 补首点
+    if (points.length === 0 || points[0].time > tLeft) {
+        // 找到前一个状态
+        let prev = 0;
+        for (let i = dataPoints.length - 1; i >= 0; i--) {
+            if (dataPoints[i].time < tLeft) {
+                prev = dataPoints[i].value;
+                break;
+            }
+        }
+        points.unshift({ time: tLeft, value: prev });
+    }
+
+    // 阶梯波形
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    let first = true;
+    for (let i = 0; i < points.length; i++) {
+        const pt = points[i];
+        // 0在中间，x轴映射
+        const x = centerX + ((pt.time - tZero) / (WINDOW / 2)) * centerX;
+        const y = height - (pt.value * (height / 2) + height / 4);
+        if (first) {
+            ctx.moveTo(x, y);
+            first = false;
+        } else {
+            const prev = points[i - 1];
+            const prevX = centerX + ((prev.time - tZero) / (WINDOW / 2)) * centerX;
+            const prevY = height - (prev.value * (height / 2) + height / 4);
+            ctx.lineTo(x, prevY);
+            ctx.lineTo(x, y);
+        }
+    }
+    ctx.strokeStyle = '#4cc9f0';
+    ctx.stroke();
+
+    // 填充区域（阴影只到当前时刻，不超过右侧）
+    ctx.beginPath();
+    first = true;
+    let shadowEndX = null;
+    const nowTime = lastTime; // 当前实际时间
+    for (let i = 0; i < points.length; i++) {
+        const pt = points[i];
+        // 只填充到当前时间（中心线）
+        if (pt.time > nowTime) {
+            shadowEndX = centerX;
+            const prev = points[i - 1] || points[0];
+            const prevY = height - (prev.value * (height / 2) + height / 4);
+            ctx.lineTo(shadowEndX, prevY);
+            ctx.lineTo(shadowEndX, height);
+            break;
+        }
+        const x = centerX + ((pt.time - tZero) / (WINDOW / 2)) * centerX;
+        const y = height - (pt.value * (height / 2) + height / 4);
+        if (first) {
+            ctx.moveTo(x, y);
+            first = false;
+        } else {
+            const prev = points[i - 1];
+            const prevX = centerX + ((prev.time - tZero) / (WINDOW / 2)) * centerX;
+            const prevY = height - (prev.value * (height / 2) + height / 4);
+            ctx.lineTo(x, prevY);
+            ctx.lineTo(x, y);
+        }
+    }
+    if (shadowEndX === null) {
+        // 全部点都在当前时间之前
+        ctx.lineTo(centerX, height);
+        ctx.lineTo(0, height);
+    } else {
+        ctx.lineTo(0, height);
+    }
+    ctx.closePath();
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, 'rgba(76, 201, 240, 0.3)');
+    gradient.addColorStop(1, 'rgba(76, 201, 240, 0.1)');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // 时间刻度（相对时间，0在中间，左侧为负，右侧为正）
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 10; i++) {
+        const relT = -WINDOW / 2 + (i / 10) * WINDOW;
+        const x = (i / 10) * width;
+        ctx.fillText(relT.toFixed(1) + 's', x, height - 5);
+        ctx.beginPath();
+        ctx.moveTo(x, height - 20);
+        ctx.lineTo(x, height - 15);
+        ctx.stroke();
+    }
+    // 状态标记
+    ctx.textAlign = 'left';
+    ctx.fillText('按下 (1)', 10, 20);
+    ctx.fillText('释放 (0)', 10, height - 20);
+}
+            
+            function updateGraph() {
+                drawGraph();
+                
+                if (isDetecting) {
+                    animationId = requestAnimationFrame(updateGraph);
+                    
+                    // 更新检测时间
+                    if (startTime > 0) {
+                        const elapsedTime = (Date.now() - startTime) / 1000;
+                        detectionTime.textContent = elapsedTime.toFixed(1) + 's';
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

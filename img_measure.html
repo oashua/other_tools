@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片尺寸测量工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .upload-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .preview-section {
+            flex: 2;
+            min-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .upload-box {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #eaf2f8;
+        }
+
+        .upload-box:hover {
+            background: #d6eaf8;
+            border-color: #2980b9;
+        }
+
+        .upload-box i {
+            font-size: 3rem;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+
+        .upload-box p {
+            margin: 10px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #2ecc71;
+        }
+
+        .btn-secondary:hover {
+            background: #27ae60;
+        }
+
+        .btn-reset {
+            background: #e74c3c;
+        }
+
+        .btn-reset:hover {
+            background: #c0392b;
+        }
+
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .reference-input {
+            margin: 15px 0;
+        }
+
+        .canvas-container {
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #measureCanvas {
+            max-width: 100%;
+            max-height: 70vh;
+            display: block;
+        }
+
+        .measure-info {
+            padding: 15px;
+            background: #eaf2f8;
+            border-radius: 8px;
+        }
+
+        .info-item {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .value {
+            font-weight: bold;
+            color: #2980b9;
+        }
+
+        .instructions {
+            padding: 15px;
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .instructions h3 {
+            color: #d35400;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+        }
+
+        .key-shortcut {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .upload-section,
+            .preview-section {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>图片尺寸测量工具</h1>
+            <p class="description">上传图片，设置参考距离，测量任意两点间的实际距离</p>
+        </header>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <h2 class="section-title">上传图片</h2>
+                <div class="upload-box" id="dropArea">
+                    <i>📁</i>
+                    <p>拖放图片到此处或点击上传</p>
+                    <p>支持 JPG, PNG, GIF 格式</p>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <button class="btn" id="uploadBtn">选择图片</button>
+                </div>
+
+                <div class="reference-input">
+                    <h2 class="section-title">设置参考距离</h2>
+                    <p>在图片上选择两点并输入实际距离</p>
+                    <input type="number" id="realDistance" placeholder="实际距离（单位：毫米）" min="0" step="0.1">
+                    <p>选择参考点后点击设置</p>
+                    <button class="btn btn-secondary" id="setReferenceBtn">设置参考距离</button>
+                </div>
+
+                <div class="actions">
+                    <h2 class="section-title">操作</h2>
+                    <button class="btn" id="measureBtn">开始测量</button>
+                    <button class="btn btn-reset" id="resetBtn">重置</button>
+                    <button class="btn" id="undoMeasureBtn" style="background:#f39c12;">撤销测量</button>
+                </div>
+
+                <div class="instructions">
+                    <h3>使用说明</h3>
+                    <ul>
+                        <li>上传图片后，首先设置参考距离</li>
+                        <li>点击"设置参考距离"后，在图片上选择两个点</li>
+                        <li>输入两点间的实际距离并确认</li>
+                        <li>点击"开始测量"后在图片上选择任意两点进行测量</li>
+                        <li>按住<span class="key-shortcut">Shift</span>键可以绘制水平或垂直的测量线</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <h2 class="section-title">图片预览与测量</h2>
+                <div class="canvas-container">
+                    <canvas id="measureCanvas">您的浏览器不支持Canvas</canvas>
+                </div>
+
+                <div class="measure-info">
+                    <h2 class="section-title">测量结果</h2>
+                    <div class="info-item">
+                        <span>像素距离:</span>
+                        <span id="pixelDistance" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span>实际距离:</span>
+                        <span id="actualDistance" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span>比例尺:</span>
+                        <span id="scaleRatio" class="value">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2023 图片尺寸测量工具 | 使用HTML5 Canvas开发</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 获取DOM元素
+            const uploadBtn = document.getElementById('uploadBtn');
+            const imageUpload = document.getElementById('imageUpload');
+            const dropArea = document.getElementById('dropArea');
+            const canvas = document.getElementById('measureCanvas');
+            const ctx = canvas.getContext('2d');
+            const measureBtn = document.getElementById('measureBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const setReferenceBtn = document.getElementById('setReferenceBtn');
+            const realDistanceInput = document.getElementById('realDistance');
+            const pixelDistanceEl = document.getElementById('pixelDistance');
+            const actualDistanceEl = document.getElementById('actualDistance');
+            const scaleRatioEl = document.getElementById('scaleRatio');
+            const undoMeasureBtn = document.getElementById('undoMeasureBtn');
+
+            // 状态变量
+            let image = null;
+            let scaleRatio = 0;
+            let isMeasuring = false;
+            let isSettingReference = false;
+            let referencePoints = [];
+            let measurePoints = [];
+            let isDragging = false;
+            let currentPoint = null;
+            let shiftKeyPressed = false;
+            let measureLines = [];
+            // 初始化
+            function init() {
+                // 事件监听
+                uploadBtn.addEventListener('click', () => imageUpload.click());
+                imageUpload.addEventListener('change', handleImageUpload);
+                dropArea.addEventListener('dragover', handleDragOver);
+                dropArea.addEventListener('drop', handleDrop);
+                measureBtn.addEventListener('click', toggleMeasuring);
+                resetBtn.addEventListener('click', reset);
+                setReferenceBtn.addEventListener('click', toggleSettingReference);
+                canvas.addEventListener('mousedown', handleCanvasMouseDown);
+                canvas.addEventListener('mousemove', handleCanvasMouseMove);
+                canvas.addEventListener('mouseup', handleCanvasMouseUp);
+                window.addEventListener('keydown', handleKeyDown);
+                window.addEventListener('keyup', handleKeyUp);
+                undoMeasureBtn.addEventListener('click', undoLastMeasure);
+
+                // 初始禁用按钮
+                measureBtn.disabled = true;
+                setReferenceBtn.disabled = true;
+            }
+
+            // 处理图片上传
+            function handleImageUpload(e) {
+                const file = e.target.files[0];
+                if (file && file.type.match('image.*')) {
+                    loadImage(file);
+                }
+            }
+
+            // 处理拖放
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.style.background = '#d6eaf8';
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.style.background = '#eaf2f8';
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.match('image.*')) {
+                    loadImage(file);
+                }
+            }
+
+            // 加载图片
+            function loadImage(file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    image = new Image();
+                    image.onload = function () {
+                        drawImage();
+                        measureBtn.disabled = false;
+                        setReferenceBtn.disabled = false;
+                    };
+                    image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // 绘制图片
+            function drawImage() {
+                if (!image) return;
+
+                // 设置canvas尺寸适应图片
+                const maxWidth = document.querySelector('.canvas-container').clientWidth;
+                const maxHeight = window.innerHeight * 0.7;
+
+                let width = image.width;
+                let height = image.height;
+
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height;
+                    width = maxWidth;
+                }
+
+                if (height > maxHeight) {
+                    width = (maxHeight / height) * width;
+                    height = maxHeight;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                ctx.drawImage(image, 0, 0, width, height);
+            }
+
+            // 切换测量状态
+            function toggleMeasuring() {
+                isMeasuring = !isMeasuring;
+                isSettingReference = false;
+
+                if (isMeasuring) {
+                    measureBtn.textContent = '停止测量';
+                    measureBtn.style.background = '#e74c3c';
+                    measurePoints = [];
+                } else {
+                    measureBtn.textContent = '开始测量';
+                    measureBtn.style.background = '#3498db';
+                }
+
+                drawImage();
+            }
+
+            // 切换设置参考状态
+            function toggleSettingReference() {
+                isSettingReference = !isSettingReference;
+                isMeasuring = false;
+
+                if (isSettingReference) {
+                    setReferenceBtn.textContent = '取消设置';
+                    setReferenceBtn.style.background = '#e74c3c';
+                    referencePoints = [];
+                    measureBtn.textContent = '开始测量';
+                    measureBtn.style.background = '#3498db';
+                } else {
+                    setReferenceBtn.textContent = '设置参考距离';
+                    setReferenceBtn.style.background = '#2ecc71';
+                }
+
+                drawImage();
+            }
+
+            // 处理画布鼠标事件
+            function handleCanvasMouseDown(e) {
+                if (!image) return;
+
+                const rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let y = e.clientY - rect.top;
+
+                if (isSettingReference) {
+                    if (referencePoints.length === 1 && shiftKeyPressed) {
+                        const startX = referencePoints[0].x;
+                        const startY = referencePoints[0].y;
+                        const dx = Math.abs(x - startX);
+                        const dy = Math.abs(y - startY);
+                        if (dx > dy) {
+                            y = startY;
+                        } else {
+                            x = startX;
+                        }
+                    }
+                    referencePoints.push({ x, y });
+                    if (referencePoints.length === 2) {
+                        calculateScaleRatio();
+                        toggleSettingReference();
+                    }
+                } else if (isMeasuring) {
+                    if (measurePoints.length === 0) {
+                        measurePoints.push({ x, y });
+                        isDragging = true;
+                        currentPoint = { x, y };
+                    } else if (measurePoints.length === 2) {
+                        measurePoints = [{ x, y }];
+                        currentPoint = { x, y };
+                        isDragging = true;
+                    }
+                }
+
+                drawImage();
+                drawPointsAndLines();
+            }
+            function handleCanvasMouseMove(e) {
+                if (!image) return;
+                const rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let y = e.clientY - rect.top;
+
+                if (isSettingReference && referencePoints.length === 1) {
+                    // 预览第二个参考点，支持shift
+                    if (shiftKeyPressed) {
+                        const startX = referencePoints[0].x;
+                        const startY = referencePoints[0].y;
+                        const dx = Math.abs(x - startX);
+                        const dy = Math.abs(y - startY);
+                        if (dx > dy) {
+                            y = startY;
+                        } else {
+                            x = startX;
+                        }
+                    }
+                    // 预览线
+                    drawImage();
+                    // 已有第一个点
+                    ctx.fillStyle = 'red';
+                    ctx.beginPath();
+                    ctx.arc(referencePoints[0].x, referencePoints[0].y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'red';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(referencePoints[0].x, referencePoints[0].y);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    return;
+                }
+
+                if (!isDragging || !image) return;
+
+                if (isMeasuring) {
+                    if (shiftKeyPressed) {
+                        const startX = measurePoints[0].x;
+                        const startY = measurePoints[0].y;
+                        const dx = Math.abs(x - startX);
+                        const dy = Math.abs(y - startY);
+                        if (dx > dy) {
+                            y = startY;
+                        } else {
+                            x = startX;
+                        }
+                    }
+                    currentPoint = { x, y };
+                    drawImage();
+                    drawPointsAndLines();
+                }
+            }
+
+            function handleCanvasMouseUp() {
+                if (!isDragging || !isMeasuring) return;
+
+                isDragging = false;
+                if (currentPoint) {
+                    measurePoints.push(currentPoint);
+                    // 新增：保存本次测量线
+                    if (measurePoints.length === 2) {
+                        measureLines.push([
+                            { x: measurePoints[0].x, y: measurePoints[0].y },
+                            { x: measurePoints[1].x, y: measurePoints[1].y }
+                        ]);
+                    }
+                    calculateDistances();
+                    currentPoint = null;
+                    measurePoints = [];
+                    drawImage();
+                    drawPointsAndLines();
+                }
+            }
+
+
+            // 处理按键事件
+            function handleKeyDown(e) {
+                if (e.key === 'Shift') {
+                    shiftKeyPressed = true;
+                    if (isDragging && measurePoints.length === 1 && currentPoint) {
+                        // 重新计算当前点位置
+                        const startX = measurePoints[0].x;
+                        const startY = measurePoints[0].y;
+                        const dx = Math.abs(currentPoint.x - startX);
+                        const dy = Math.abs(currentPoint.y - startY);
+
+                        if (dx > dy) {
+                            currentPoint = { x: currentPoint.x, y: startY };
+                        } else {
+                            currentPoint = { x: startX, y: currentPoint.y };
+                        }
+
+                        drawImage();
+                        drawPointsAndLines();
+                    }
+                }
+            }
+
+            function handleKeyUp(e) {
+                if (e.key === 'Shift') {
+                    shiftKeyPressed = false;
+                }
+            }
+
+            // 绘制点和线
+            function drawPointsAndLines() {
+                // 参考点和参考线
+                ctx.fillStyle = 'red';
+                referencePoints.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                if (referencePoints.length === 2) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(referencePoints[0].x, referencePoints[0].y);
+                    ctx.lineTo(referencePoints[1].x, referencePoints[1].y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // 显示参考线实际距离
+                    const dx = referencePoints[1].x - referencePoints[0].x;
+                    const dy = referencePoints[1].y - referencePoints[0].y;
+                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    const realDistance = parseFloat(document.getElementById('realDistance').value);
+                    let label = '';
+                    if (realDistance > 0) {
+                        label = `${realDistance.toFixed(2)} mm`;
+                    } else {
+                        label = `${pixelDistance.toFixed(1)} px`;
+                    }
+                    ctx.save();
+                    ctx.fillStyle = 'red';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(
+                        label,
+                        (referencePoints[0].x + referencePoints[1].x) / 2 + 10,
+                        (referencePoints[0].y + referencePoints[1].y) / 2
+                    );
+                    ctx.restore();
+                }
+
+                // 已保存的所有测量线
+                measureLines.forEach(line => {
+                    ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(line[0].x, line[0].y);
+                    ctx.lineTo(line[1].x, line[1].y);
+                    ctx.stroke();
+
+                    // 显示测量结果
+                    const dx = line[1].x - line[0].x;
+                    const dy = line[1].y - line[0].y;
+                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    let label = `${pixelDistance.toFixed(1)} px`;
+                    if (scaleRatio > 0) {
+                        label += ` / ${(pixelDistance * scaleRatio).toFixed(2)} mm`;
+                    }
+                    ctx.save();
+                    ctx.fillStyle = 'blue';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(
+                        label,
+                        (line[0].x + line[1].x) / 2 + 10,
+                        (line[0].y + line[1].y) / 2
+                    );
+                    ctx.restore();
+
+                    // 绘制端点
+                    ctx.fillStyle = 'blue';
+                    [line[0], line[1]].forEach(point => {
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                });
+
+                // 当前正在绘制的测量点和线
+                ctx.fillStyle = 'blue';
+                measurePoints.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                if (measurePoints.length === 1 && currentPoint) {
+                    ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(measurePoints[0].x, measurePoints[0].y);
+                    ctx.lineTo(currentPoint.x, currentPoint.y);
+                    ctx.stroke();
+
+                    // 显示临时距离
+                    const dx = currentPoint.x - measurePoints[0].x;
+                    const dy = currentPoint.y - measurePoints[0].y;
+                    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                    let label = `${pixelDistance.toFixed(1)} px`;
+                    if (scaleRatio > 0) {
+                        label += ` / ${(pixelDistance * scaleRatio).toFixed(2)} mm`;
+                    }
+                    ctx.save();
+                    ctx.fillStyle = 'blue';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(
+                        label,
+                        (measurePoints[0].x + currentPoint.x) / 2 + 10,
+                        (measurePoints[0].y + currentPoint.y) / 2
+                    );
+                    ctx.restore();
+                }
+            }
+
+            // 计算比例尺
+            function calculateScaleRatio() {
+                if (referencePoints.length !== 2) return;
+
+                const dx = referencePoints[1].x - referencePoints[0].x;
+                const dy = referencePoints[1].y - referencePoints[0].y;
+                const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                const realDistance = parseFloat(realDistanceInput.value);
+
+                if (realDistance > 0) {
+                    scaleRatio = realDistance / pixelDistance;
+                    scaleRatioEl.textContent = `1 像素 = ${scaleRatio.toFixed(3)} 毫米(mm)`;
+                }
+            }
+
+            // 计算距离
+            function calculateDistances() {
+                if (measurePoints.length !== 2) return;
+
+                const dx = measurePoints[1].x - measurePoints[0].x;
+                const dy = measurePoints[1].y - measurePoints[0].y;
+                const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+                const actualDistance = pixelDistance * scaleRatio;
+
+                pixelDistanceEl.textContent = `${pixelDistance.toFixed(1)} 像素`;
+                actualDistanceEl.textContent = `${actualDistance.toFixed(2)} 毫米`;
+            }
+
+            // 撤销上一次测量
+            function undoLastMeasure() {
+                if (measureLines.length > 0) {
+                    measureLines.pop();
+                    drawImage();
+                    drawPointsAndLines();
+                }
+            }
+
+            // 重置
+            function reset() {
+                image = null;
+                scaleRatio = 0;
+                isMeasuring = false;
+                isSettingReference = false;
+                referencePoints = [];
+                measurePoints = [];
+                measureLines = []; // 新增：清空所有测量线
+                isDragging = false;
+                currentPoint = null;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                realDistanceInput.value = '';
+                pixelDistanceEl.textContent = '--';
+                actualDistanceEl.textContent = '--';
+                scaleRatioEl.textContent = '--';
+
+                measureBtn.textContent = '开始测量';
+                measureBtn.style.background = '#3498db';
+                measureBtn.disabled = true;
+
+                setReferenceBtn.textContent = '设置参考距离';
+                setReferenceBtn.style.background = '#2ecc71';
+                setReferenceBtn.disabled = true;
+            }
+
+            // 初始化应用
+            init();
+        });
+    </script>
+</body>
+
+</html>
