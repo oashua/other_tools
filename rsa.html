@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>信息加密解密工具（RSA）</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; padding: 30px; }
+        .container { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 12px #ddd; padding: 30px; }
+        h2 { margin-top: 30px; }
+        textarea, input[type="text"] { width: 100%; min-height: 60px; margin: 8px 0 16px 0; font-size: 1em; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+        button { padding: 8px 20px; font-size: 1em; border-radius: 4px; border: none; background: #3498db; color: #fff; cursor: pointer; margin-bottom: 10px;}
+        button:hover { background: #217dbb; }
+        .row { display: flex; gap: 20px; }
+        .col { flex: 1; }
+        .label { font-weight: bold; }
+        .output { background: #f5f5f5; border: 1px solid #eee; padding: 8px; border-radius: 4px; min-height: 40px; word-break: break-all;}
+        .key-mono { font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', 'monospace'; font-size: 0.98em; }
+    </style>
+    <!-- 替换jsbn为jsencrypt -->
+    <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.3.2/bin/jsencrypt.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>信息加密解密工具（RSA）</h1>
+
+    <!-- 1. 生成密钥区 -->
+    <h2>1. 生成密钥</h2>
+    <button onclick="generateKeys()">生成公钥和私钥</button>
+    <div>
+        <div class="label">公钥：</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <div class="output key-mono" id="pubkey" style="flex:1;"></div>
+            <button onclick="copyKey('pubkey')">复制公钥</button>
+        </div>
+        <div class="label">私钥：</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <div class="output key-mono" id="privkey" style="flex:1;"></div>
+            <button onclick="copyKey('privkey')">复制私钥</button>
+        </div>
+    </div>
+
+    <!-- 2. 加密区 -->
+    <h2>2. 加密</h2>
+    <div class="label">要加密的信息：</div>
+    <textarea id="plainText" placeholder="输入要加密的文本"></textarea>
+    <div class="label">对方公钥 (n, e)：</div>
+    <input type="text" id="encryptPubkey" placeholder="格式：n,e">
+    <button onclick="encryptMsg()">加密</button>
+    <div class="label">加密后信息：</div>
+    <div class="output" id="encrypted"></div>
+
+    <!-- 3. 解密区 -->
+    <h2>3. 解密</h2>
+    <div class="label">加密信息：</div>
+    <textarea id="cipherText" placeholder="输入加密后的文本"></textarea>
+    <div class="label">私钥 (n, d)：</div>
+    <input type="text" id="decryptPrivkey" placeholder="格式：n,d">
+    <button onclick="decryptMsg()">解密</button>
+    <div class="label">解密后信息：</div>
+    <div class="output" id="decrypted"></div>
+</div>
+
+<script>
+    let privKey = "";
+    let pubKey = "";
+
+    // 生成密钥
+    function generateKeys() {
+        const crypt = new JSEncrypt({default_key_size: 1024});
+        crypt.getKey();
+        privKey = crypt.getPrivateKey();
+        pubKey = crypt.getPublicKey();
+        document.getElementById('pubkey').textContent = pubKey;
+        document.getElementById('privkey').textContent = privKey;
+    }
+
+    // 复制公钥或私钥
+    function copyKey(id) {
+        const text = document.getElementById(id).textContent;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            alert((id === 'pubkey' ? '公钥' : '私钥') + '已复制到剪贴板');
+        });
+    }
+
+    // 加密
+    function encryptMsg() {
+        const plain = document.getElementById('plainText').value;
+        const pubkey = document.getElementById('encryptPubkey').value.trim();
+        if (!plain || !pubkey) {
+            document.getElementById('encrypted').textContent = "请输入明文和公钥";
+            return;
+        }
+        const crypt = new JSEncrypt();
+        crypt.setPublicKey(pubkey);
+        const enc = crypt.encrypt(plain);
+        document.getElementById('encrypted').textContent = enc ? enc : "加密失败";
+    }
+
+    // 解密
+    function decryptMsg() {
+        const cipher = document.getElementById('cipherText').value.trim();
+        const privkey = document.getElementById('decryptPrivkey').value.trim();
+        if (!cipher || !privkey) {
+            document.getElementById('decrypted').textContent = "请输入密文和私钥";
+            return;
+        }
+        const crypt = new JSEncrypt();
+        crypt.setPrivateKey(privkey);
+        try {
+            const dec = crypt.decrypt(cipher);
+            document.getElementById('decrypted').textContent = dec ? dec : "解密失败";
+        } catch (e) {
+            document.getElementById('decrypted').textContent = "解密失败";
+        }
+    }
+</script>
+</body>
+</html>
