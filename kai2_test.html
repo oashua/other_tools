@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>2x2 卡方检验 / Fisher 精确检验</title>
+  <style>
+    body { font-family: Arial, "Microsoft Yahei", sans-serif; padding: 24px; max-width: 800px; margin: auto; }
+    label { display:block; margin-top:12px; }
+    input[type=number] { width:120px; padding:6px; margin-left:6px }
+    .row { display:flex; gap:12px; align-items:center; margin-top:8px }
+    .result { background:#f7f7f7; padding:12px; margin-top:16px; border-radius:6px }
+    .warning { color:#b35b00 }
+    button { margin-top:12px; padding:8px 12px }
+    table { border-collapse: collapse; margin-top:12px }
+    table, th, td { border:1px solid #ccc }
+    th, td { padding:8px 10px }
+  </style>
+</head>
+<body>
+  <h1>2x2 卡方检验与 Fisher 精确检验</h1>
+
+  <p>输入研究组（A）和对照组（B）的样本量与阳性个数，计算卡方检验（Pearson 与 Yates 校正）以及 Fisher 精确检验（双侧）的 p 值。</p>
+
+  <div>
+    <label>研究组 A 总人数：<input id="n1" type="number" min="0" value="50"></label>
+    <label>研究组 A 阳性数：<input id="x1" type="number" min="0" value="10"></label>
+    <label>对照组 B 总人数：<input id="n2" type="number" min="0" value="60"></label>
+    <label>对照组 B 阳性数：<input id="x2" type="number" min="0" value="5"></label>
+
+    <div class="row">
+      <button id="calc">计算</button>
+      <button id="reset">重置示例</button>
+    </div>
+  </div>
+
+  <div id="output" class="result" style="display:none">
+    <h3>结果</h3>
+    <div id="tableArea"></div>
+    <div id="stats"></div>
+    <div id="notes" class="warning"></div>
+  </div>
+
+  <!-- jStat 用于卡方分布的 CDF 计算 -->
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.5/dist/jstat.min.js"></script>
+
+  <script>
+    // 辅助：Lanczos 近似的 lnGamma，用于 Fisher 精确检验的组合数计算
+    function lnGamma(z) {
+      // Coefficients for Lanczos approximation
+      const p = [676.5203681218851, -1259.1392167224028, 771.32342877765313,
+        -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+        9.9843695780195716e-6, 1.5056327351493116e-7];
+      if (z < 0.5) {
+        return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * z)) - lnGamma(1 - z);
+      }
+      z -= 1;
+      let x = 0.99999999999980993;
+      for (let i = 0; i < p.length; i++) x += p[i] / (z + i + 1);
+      const t = z + p.length - 0.5;
+      return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+    }
+
+    function lnComb(n, k) {
+      if (k < 0 || k > n) return -Infinity;
+      return lnGamma(n + 1) - lnGamma(k + 1) - lnGamma(n - k + 1);
+    }
+
+    // Hypergeometric PMF for a 2x2 table where a is top-left cell
+    function hypergeometricPMF(a, n1, n2, totalPos) {
+      // probability = C(n1, a) * C(n2, totalPos - a) / C(n1 + n2, totalPos)
+      const lnP = lnComb(n1, a) + lnComb(n2, totalPos - a) - lnComb(n1 + n2, totalPos);
+      return Math.exp(lnP);
+    }
+
+    // Two-sided Fisher exact p-value (two-sided as sum of probabilities <= prob_obs)
+    function fisherExactTwoSided(a, b, c, d) {
+      const n1 = a + b; // group1 total
+      const n2 = c + d; // group2 total
+      const totalPos = a + c;
+      const minA = Math.max(0, totalPos - n2);
+      const maxA = Math.min(n1, totalPos);
+      const probObs = hypergeometricPMF(a, n1, n2, totalPos);
+      let p = 0;
+      for (let ai = minA; ai <= maxA; ai++) {
+        const p_i = hypergeometricPMF(ai, n1, n2, totalPos);
+        if (p_i <= probObs + 1e-12) p += p_i;
+      }
+      return Math.min(1, p);
+    }
+
+    function computeChi2(expected, observed, yates=false) {
+      let chi2 = 0;
+      for (let i = 0; i < observed.length; i++) {
+        const o = observed[i];
+        const e = expected[i];
+        if (e <= 0) continue;
+        if (yates) {
+          chi2 += Math.pow(Math.abs(o - e) - 0.5, 2) / e;
+        } else {
+          chi2 += Math.pow(o - e, 2) / e;
+        }
+      }
+      return chi2;
+    }
+
+    document.getElementById('calc').addEventListener('click', () => {
+      const n1 = Math.round(Number(document.getElementById('n1').value));
+      const x1 = Math.round(Number(document.getElementById('x1').value));
+      const n2 = Math.round(Number(document.getElementById('n2').value));
+      const x2 = Math.round(Number(document.getElementById('x2').value));
+
+      const output = document.getElementById('output');
+      const tableArea = document.getElementById('tableArea');
+      const stats = document.getElementById('stats');
+      const notes = document.getElementById('notes');
+      output.style.display = 'block';
+      notes.textContent = '';
+
+      // basic validation
+      if (isNaN(n1) || isNaN(n2) || isNaN(x1) || isNaN(x2) || n1 < 0 || n2 < 0 || x1 < 0 || x2 < 0) {
+        stats.innerHTML = '<span class="warning">请输入有效的非负整数。</span>';
+        return;
+      }
+      if (x1 > n1 || x2 > n2) {
+        stats.innerHTML = '<span class="warning">阳性数不得超过总人数。</span>';
+        return;
+      }
+
+      const a = x1; // study positive
+      const b = n1 - x1; // study negative
+      const c = x2; // control positive
+      const d = n2 - x2; // control negative
+
+      // Build table HTML
+      tableArea.innerHTML = `
+        <table>
+          <tr><th></th><th>阳性</th><th>阴性</th><th>合计</th></tr>
+          <tr><th>研究组 A</th><td>${a}</td><td>${b}</td><td>${n1}</td></tr>
+          <tr><th>对照组 B</th><td>${c}</td><td>${d}</td><td>${n2}</td></tr>
+          <tr><th>合计</th><td>${a + c}</td><td>${b + d}</td><td>${n1 + n2}</td></tr>
+        </table>
+      `;
+
+      // Expected counts for 2x2 table
+      const total = n1 + n2;
+      const totalPos = a + c;
+      const totalNeg = b + d;
+      const e_a = n1 * (totalPos / total);
+      const e_b = n1 * (totalNeg / total);
+      const e_c = n2 * (totalPos / total);
+      const e_d = n2 * (totalNeg / total);
+
+      const observed = [a, b, c, d];
+      const expected = [e_a, e_b, e_c, e_d];
+
+      const chi2 = computeChi2(expected, observed, false);
+      const chi2_yates = computeChi2(expected, observed, true);
+
+      // p-values using jStat
+      const p_chi2 = 1 - jStat.chisquare.cdf(chi2, 1);
+      const p_chi2_yates = 1 - jStat.chisquare.cdf(chi2_yates, 1);
+
+      // Fisher exact two-sided
+      const p_fisher = fisherExactTwoSided(a, b, c, d);
+
+      let html = '';
+      html += `<p>期望计数：A阳性 ${e_a.toFixed(3)}, A阴性 ${e_b.toFixed(3)}, B阳性 ${e_c.toFixed(3)}, B阴性 ${e_d.toFixed(3)}</p>`;
+      html += `<p>Pearson 卡方统计量 &chi;^2 = ${chi2.toFixed(4)}, 自由度 = 1，p = ${p_chi2.toFixed(4)}</p>`;
+      html += `<p>Yates 连续性修正 &chi;^2 = ${chi2_yates.toFixed(4)}, p = ${p_chi2_yates.toFixed(4)}</p>`;
+      html += `<p>Fisher 精确检验（双侧） p = ${p_fisher.toExponential(4)}</p>`;
+
+      stats.innerHTML = html;
+
+      // warn if expected counts small
+      if (e_a < 5 || e_b < 5 || e_c < 5 || e_d < 5) {
+        notes.innerHTML = '注意：有期望计数 < 5，卡方检验的近似可能不准确，建议使用 Fisher 精确检验。';
+      }
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      document.getElementById('n1').value = 50;
+      document.getElementById('x1').value = 10;
+      document.getElementById('n2').value = 60;
+      document.getElementById('x2').value = 5;
+      document.getElementById('output').style.display = 'none';
+    });
+  </script>
+</body>
+</html>
