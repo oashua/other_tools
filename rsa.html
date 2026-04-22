@@ -30,13 +30,10 @@
         <div class="label">公钥：</div>
         <div style="display:flex;gap:8px;align-items:center;">
             <div class="output key-mono" id="pubkey" style="flex:1;"></div>
-            <button onclick="copyKey('pubkey')">复制公钥</button>
+            <button onclick="copyPubKey()">复制公钥</button>
         </div>
         <div class="label">私钥：</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <div class="output key-mono" id="privkey" style="flex:1;"></div>
-            <button onclick="copyKey('privkey')">复制私钥</button>
-        </div>
+        <div class="output key-mono">私钥已生成并保存在内存中（不展示）</div>
     </div>
 
     <!-- 2. 加密区 -->
@@ -61,63 +58,62 @@
 </div>
 
 <script>
-    let privKey = "";
-    let pubKey = "";
+    (() => {
+        let privateKey = "";
+        let publicKey = "";
 
-    // 生成密钥
-    function generateKeys() {
-        const crypt = new JSEncrypt({default_key_size: 1024});
-        crypt.getKey();
-        privKey = crypt.getPrivateKey();
-        pubKey = crypt.getPublicKey();
-        document.getElementById('pubkey').textContent = pubKey;
-        document.getElementById('privkey').textContent = privKey;
-    }
+        // 生成密钥
+        window.generateKeys = function generateKeys() {
+            const crypt = new JSEncrypt({default_key_size: 1024});
+            crypt.getKey();
+            privateKey = crypt.getPrivateKey();
+            publicKey = crypt.getPublicKey();
+            document.getElementById('pubkey').textContent = publicKey;
+        }
 
-    // 复制公钥或私钥
-    function copyKey(id) {
-        const text = document.getElementById(id).textContent;
-        if (!text) return;
-        navigator.clipboard.writeText(text).then(() => {
-            alert((id === 'pubkey' ? '公钥' : '私钥') + '已复制到剪贴板');
-        });
-    }
+        // 复制公钥
+        window.copyPubKey = function copyPubKey() {
+            if (!publicKey) return;
+            navigator.clipboard.writeText(publicKey).then(() => {
+                alert('公钥已复制到剪贴板');
+            });
+        }
 
-    // 加密
-    function encryptMsg() {
-        const plain = document.getElementById('plainText').value;
-        const pubkey = document.getElementById('encryptPubkey').value.trim();
-        if (!plain || !pubkey) {
-            document.getElementById('encrypted').textContent = "请输入明文和公钥";
-            return;
+        // 加密
+        window.encryptMsg = function encryptMsg() {
+            const plain = document.getElementById('plainText').value;
+            const pubkey = document.getElementById('encryptPubkey').value.trim();
+            if (!plain || !pubkey) {
+                document.getElementById('encrypted').textContent = "请输入明文和公钥";
+                return;
+            }
+            const crypt = new JSEncrypt();
+            crypt.setPublicKey(pubkey);
+            const enc = crypt.encrypt(plain);
+            document.getElementById('encrypted').textContent = enc ? enc : "加密失败";
         }
-        const crypt = new JSEncrypt();
-        crypt.setPublicKey(pubkey);
-        const enc = crypt.encrypt(plain);
-        document.getElementById('encrypted').textContent = enc ? enc : "加密失败";
-    }
 
-    // 解密
-    function decryptMsg() {
-        const cipher = document.getElementById('cipherText').value.trim();
-        const currentPrivKey = privKey || document.getElementById('privkey').textContent.trim();
-        if (!cipher) {
-            document.getElementById('decrypted').textContent = "请输入密文";
-            return;
+        // 解密（使用内存中的私钥，不渲染到页面）
+        window.decryptMsg = function decryptMsg() {
+            const cipher = document.getElementById('cipherText').value.trim();
+            if (!cipher) {
+                document.getElementById('decrypted').textContent = "请输入密文";
+                return;
+            }
+            if (!privateKey) {
+                document.getElementById('decrypted').textContent = "请先生成私钥";
+                return;
+            }
+            const crypt = new JSEncrypt();
+            crypt.setPrivateKey(privateKey);
+            try {
+                const dec = crypt.decrypt(cipher);
+                document.getElementById('decrypted').textContent = dec ? dec : "解密失败";
+            } catch (e) {
+                document.getElementById('decrypted').textContent = "解密失败";
+            }
         }
-        if (!currentPrivKey) {
-            document.getElementById('decrypted').textContent = "请先生成私钥";
-            return;
-        }
-        const crypt = new JSEncrypt();
-        crypt.setPrivateKey(currentPrivKey);
-        try {
-            const dec = crypt.decrypt(cipher);
-            document.getElementById('decrypted').textContent = dec ? dec : "解密失败";
-        } catch (e) {
-            document.getElementById('decrypted').textContent = "解密失败";
-        }
-    }
+    })();
 </script>
 </body>
 </html>
