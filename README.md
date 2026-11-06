@@ -5,3 +5,5 @@
 [图片尺寸测量器](https://oashua.github.io/other_tools/img_measure.html)
 
 [信息加密解密](https://oashua.github.io/other_tools/rsa.html)
+
+[显著性检验](https://oashua.github.io/other_tools/kai2_test.html)
